@@ -87,7 +87,7 @@ docker rename sayurkin-custom-nginx-t2 custom-nginx-t2
 ```
 Подключитесь к контейнеру 
 ```bash
-docker attach --detach-keys="ctrl-q" custom-nginx-t2
+docker attach custom-nginx-t2
 ```
 ![alt text](./images/container-attach.png "Container attach")
 Нажмите комбинацию Ctrl-C.
@@ -127,12 +127,80 @@ docker attach --detach-keys="ctrl-q" custom-nginx-t2
 # Задача 4
 
 Запустите первый контейнер из образа centos c любым тегом в фоновом режиме, подключив папку текущий рабочий каталог $(pwd) на хостовой машине в /data контейнера, используя ключ -v.
+
+```bash
+docker run \
+    -it \
+    -v $(pwd):/data \
+    --name test-centos \
+    -d \
+    centos:latest
+```
+
 Запустите второй контейнер из образа debian в фоновом режиме, подключив текущий рабочий каталог $(pwd) в /data контейнера.
+
+```bash
+docker run \
+    -it \
+    -v $(pwd):/data \
+    --name test-debian \
+    -d \
+    debian:latest
+```
+
 Подключитесь к первому контейнеру с помощью docker exec и создайте текстовый файл любого содержания в /data.
+
+```bash
+docker exec \
+    -it \
+    test-debian \
+    bash -c \
+    "echo 'some text' >> /data/test.txt"
+```
+
+![alt text](./images/file-created-in-first-container.png "New file was creates in first container")
 Добавьте ещё один файл в текущий каталог $(pwd) на хостовой машине.
+
+```bash
+echo 'One more file' >> oneMoreFileInHost.txt
+
+```
+
+![alt text](./images/one-more-file.png "One more file")
 Подключитесь во второй контейнер и отобразите листинг и содержание файлов в /data контейнера.
+![alt text](./images/list-files-in-second-container.png "List files in second container")
 
 ---
 
 # Задача 5
-...
+
+
+Создайте отдельную директорию(например /tmp/netology/docker/task5) и 2 файла внутри него. 
+- "compose.yaml"
+- "docker-compose.yaml"
+![alt text](./images/two-files-was-created-in-tmp-folder.png "Two files was created")
+Выполните команду "docker compose up -d"
+
+Какой из файлов был запущен и почему? (подсказка: https://docs.docker.com/compose/compose-application-model/#the-compose-file )
+
+Отредактируйте файл compose.yaml так, чтобы были запущенны оба файла. (подсказка: https://docs.docker.com/compose/compose-file/14-include/)
+
+Выполните в консоли вашей хостовой ОС необходимые команды чтобы залить образ custom-nginx как custom-nginx:latest в запущенное вами, локальное registry. Дополнительная документация: https://distribution.github.io/distribution/about/deploying/
+
+Откройте страницу "https://127.0.0.1:9000" и произведите начальную настройку portainer.(логин и пароль адмнистратора)
+
+Откройте страницу "http://127.0.0.1:9000/#!/home", выберите ваше local окружение. Перейдите на вкладку "stacks" и в "web editor" задеплойте следующий компоуз:
+
+```yml
+version: '3'
+
+services:
+  nginx:
+    image: 127.0.0.1:5000/custom-nginx
+    ports:
+      - "9090:80"
+```
+
+Перейдите на страницу "http://127.0.0.1:9000/#!/2/docker/containers", выберите контейнер с nginx и нажмите на кнопку "inspect". В представлении <> Tree разверните поле "Config" и сделайте скриншот от поля "AppArmorProfile" до "Driver".
+
+Удалите любой из манифестов компоуза(например compose.yaml). Выполните команду "docker compose up -d". Прочитайте warning, объясните суть предупреждения и выполните предложенное действие. Погасите compose-проект ОДНОЙ(обязательно!!) командой.
