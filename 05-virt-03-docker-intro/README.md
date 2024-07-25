@@ -11,6 +11,7 @@
 ![alt text](./images/nginx-docker-image.png "Custom nginx repo on docker-registry")
 1. Создан [Dockerfile](./Dockerfile)
 2. Реализована замена дефолтной индекс-страницы(/usr/share/nginx/html/index.html), на файл index.html с содержимым.
+
 ```html
 <html>
 
@@ -24,16 +25,21 @@
 
 </html>
 ```
-3. Соберите и отправьте созданный образ в свой dockerhub-репозитории c tag 1.0.0 (ТОЛЬКО ЕСЛИ ЕСТЬ ДОСТУП).
+
+1. Соберите и отправьте созданный образ в свой dockerhub-репозитории c tag 1.0.0 (ТОЛЬКО ЕСЛИ ЕСТЬ ДОСТУП).
 Команда для сборки образа
+
 ```bash
 docker build -t custom-nginx:1.0.0 .
 ```
+
 Добавление в docker-hub
+
 ```bash
 docker tag custom-nginx:1.0.0 mkezhman85/custom-nginx:1.0.0
 docker push mkezhman85/custom-nginx:1.0.0
 ```
+
 ![alt text](./images/nginx-tag.png "nginx tag")
 1. Предоставьте ответ в виде ссылки на https://hub.docker.com/<username_repo>/custom-nginx/general .
 
@@ -179,17 +185,43 @@ echo 'One more file' >> oneMoreFileInHost.txt
 - "compose.yaml"
 - "docker-compose.yaml"
 ![alt text](./images/two-files-was-created-in-tmp-folder.png "Two files was created")
-Выполните команду "docker compose up -d"
-
+Выполните команду `docker compose up -d`
+![alt text](./images/dc-up-d.png "docker compose up -d")
 Какой из файлов был запущен и почему? (подсказка: https://docs.docker.com/compose/compose-application-model/#the-compose-file )
+
+```bash
+~/Projects/devops-course/05-virt-03-docker-intro/tmp/netology/docker/task5$ docker compose logs
+WARN[0000] Found multiple config files with supported names: /home/sayurkin/Projects/devops-course/05-virt-03-docker-intro/tmp/netology/docker/task5/compose.yaml, /home/sayurkin/Projects/devops-course/05-virt-03-docker-intro/tmp/netology/docker/task5/docker-compose.yaml 
+WARN[0000] Using /home/sayurkin/Projects/devops-course/05-virt-03-docker-intro/tmp/netology/docker/task5/compose.yaml 
+WARN[0000] /home/sayurkin/Projects/devops-course/05-virt-03-docker-intro/tmp/netology/docker/task5/compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion 
+
+```
 
 Отредактируйте файл compose.yaml так, чтобы были запущенны оба файла. (подсказка: https://docs.docker.com/compose/compose-file/14-include/)
 
+```yaml
+version: "3"
+include:
+  - docker-compose.yaml
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    network_mode: host
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+```
+
+![alt text](./images/dc-after-edit-compose-yaml.png "docker compose up -d after edit")
 Выполните в консоли вашей хостовой ОС необходимые команды чтобы залить образ custom-nginx как custom-nginx:latest в запущенное вами, локальное registry. Дополнительная документация: https://distribution.github.io/distribution/about/deploying/
 
 Откройте страницу "https://127.0.0.1:9000" и произведите начальную настройку portainer.(логин и пароль адмнистратора)
+![alt text](./images/portainer-1.png "portainer 1")
+![alt text](./images/portainer-2.png "portainer 2")
 
 Откройте страницу "http://127.0.0.1:9000/#!/home", выберите ваше local окружение. Перейдите на вкладку "stacks" и в "web editor" задеплойте следующий компоуз:
+![alt text](./images/portainer-3.png "portainer 3")
 
 ```yml
 version: '3'
@@ -200,7 +232,16 @@ services:
     ports:
       - "9090:80"
 ```
+![alt text](./images/portainer-4.png "portainer 4")
 
 Перейдите на страницу "http://127.0.0.1:9000/#!/2/docker/containers", выберите контейнер с nginx и нажмите на кнопку "inspect". В представлении <> Tree разверните поле "Config" и сделайте скриншот от поля "AppArmorProfile" до "Driver".
+![alt text](./images/portainer-5.png "portainer 5")
 
 Удалите любой из манифестов компоуза(например compose.yaml). Выполните команду "docker compose up -d". Прочитайте warning, объясните суть предупреждения и выполните предложенное действие. Погасите compose-проект ОДНОЙ(обязательно!!) командой.
+> После удаления остались контейнеры, не описанные в манифесте
+
+```bash
+docker compose stop
+```
+
+![alt text](./images/docker-compose-stop.png "docker compose stop")
