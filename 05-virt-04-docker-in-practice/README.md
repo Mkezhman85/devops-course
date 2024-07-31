@@ -43,3 +43,19 @@
     docker build -t python_app .
     ```
     ![alt text](image-2.png)
+
+---
+
+# Задача 2
+
+- [x] Создайте в yandex cloud container registry с именем "test" с помощью "yc tool"
+![alt text](image-3.png)
+- [ ] Настройте аутентификацию вашего локального docker в yandex container registry.
+![alt text](image-4.png)
+- [ ] Соберите и залейте в него образ с python приложением из задания №1.
+![alt text](image-5.png)
+![alt text](image-6.png)
+- [ ] Просканируйте образ на уязвимости.
+![alt text](image-7.png)
+- [ ] В качестве ответа приложите отчет сканирования.
+![alt text](image-8.png)
