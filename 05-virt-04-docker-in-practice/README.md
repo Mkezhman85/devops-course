@@ -118,3 +118,106 @@
 - [x] Подключитесь к БД mysql с помощью команды docker exec <имя_контейнера> mysql -uroot -p<пароль root-пользователя>(обратите внимание что между ключем -u и логином root нет пробела. это важно!!! тоже самое с паролем) . Введите последовательно команды (не забываем в конце символ ; ): show databases; use <имя вашей базы данных(по-умолчанию example)>; show tables; SELECT * from requests LIMIT 10;.
 - [x] Остановите проект. В качестве ответа приложите скриншот sql-запроса.
 ![alt text](image-11.png)
+
+---
+
+
+# Задача 4
+- [x] Запустите в Yandex Cloud ВМ (вам хватит 2 Гб Ram).
+![alt text](image-13.png)
+- [x] Подключитесь к Вм по ssh и установите docker.
+![alt text](image-12.png)
+- [ ] Напишите bash-скрипт, который скачает ваш fork-репозиторий в каталог /opt и запустит проект целиком.
+![alt text](image-14.png)
+
+init script
+
+```bash
+#!/bin/bash
+
+scp  run_app.sh user@<ip>:$HOME/run_app.sh
+
+ssh user@<ip> chmod +x $HOME/run_app.sh
+
+ssh user@<ip>  sudo bash $HOME/run_app.sh
+```
+
+run app script
+
+```bash
+#!/bin/bash
+
+cd /opt
+
+git clone https://github.com/netology-code/shvirtd-example-python.git
+
+cd shvirtd-example-python
+
+cat << EOF > .dockerignore
+/haproxy
+/nginx
+.gitignore
+compose.yaml
+init.sh
+LICENCE
+proxy.yaml
+schema.pdf
+README.md
+.dockerignore
+EOF
+
+cat << EOF > .dockerignore
+
+EOF
+
+cat << EOF > .env
+MYSQL_ROOT_PASSWORD="YtReWq4321"
+
+MYSQL_DATABASE="virtd"
+MYSQL_USER="app"
+MYSQL_PASSWORD="QwErTy1234"
+EOF
+
+cat << EOF > Dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
+CMD [ "python", "main.py"]
+EOF
+
+cat << EOF > compose.yaml
+version: "3"
+include:
+  - proxy.yaml
+services:
+  db:
+    image: mysql:8
+    restart: always    
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+    env_file:
+      - .env
+    volumes:
+      - ./data:/var/lib/mysql
+
+  web:
+    depends_on: ["db"]
+    build: .
+    restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+    environment:
+      - DB_HOST=172.20.0.10
+      - DB_USER=app
+      - DB_PASSWORD=QwErTy1234
+      - DB_NAME=virtd
+EOF
+
+docker compose up -d
+```
+
+- [ ] Зайдите на сайт проверки http подключений, например(или аналогичный): https://check-host.net/check-http и запустите проверку вашего сервиса http://<внешний_IP-адрес_вашей_ВМ>:8090. Таким образом трафик будет направлен в ingress-proxy. ПРИМЕЧАНИЕ: Приложение весьма вероятно упадет под нагрузкой, но успеет обработать часть запросов - этого достаточно.
+![alt text](image-15.png)
