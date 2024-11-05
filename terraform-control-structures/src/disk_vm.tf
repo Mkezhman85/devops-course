@@ -36,5 +36,4 @@ resource "yandex_compute_instance" "storage" {
       disk_id = yandex_compute_disk.volume["${secondary_disk.key}"].id
     }
   }
-
 }
