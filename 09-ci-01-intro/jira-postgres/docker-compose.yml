@@ -1,0 +1,40 @@
+version: '2'
+networks:
+  bridge:
+    driver: bridge
+services:
+  jira-web:
+    image: "atlassian/jira-software"
+    restart: always
+    container_name: jira
+    depends_on:
+      - jira-postgres-db
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+    volumes:
+      - jira-data:/usr/local/jira
+    networks:
+      - bridge
+  jira-postgres-db:
+    image: "postgres:15"
+    restart: always
+    ports:
+      - 5433:5432 # если порт 5432 занят можно указать 5433:5432
+    container_name: jira-postgres-db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_ROOT_PASSWORD=${POSTGRES_ROOT_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_INITDB_ARGS=${POSTGRES_INITDB_ARGS}
+    networks:
+      - bridge
+volumes:
+  postgres-data: {}
+  jira-data: {}
