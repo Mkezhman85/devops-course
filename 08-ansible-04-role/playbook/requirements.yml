@@ -10,4 +10,4 @@
   - src: git@github.com:Mkezhman85/lighthouse-role.git
     scm: git
     version: "1.0"
-    name: lighthouse 
+    name: lighthouse
