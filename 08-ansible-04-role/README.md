@@ -169,13 +169,13 @@ git push --set-upstream --force origin main
    ```
 
 10. Выложите playbook в репозиторий.
-- [playbook](...)
+- [playbook]([devops-course/08-ansible-04-role/README.md at main · Mkezhman85/devops-course · GitHub](https://github.com/Mkezhman85/devops-course/blob/main/08-ansible-04-role/README.md))
 11. В ответе дайте ссылки на оба репозитория с roles и одну ссылку на репозиторий с playbook.
 - [lighhouse role]([GitHub - Mkezhman85/lighthouse-role: This repo was made for netology home task](https://github.com/Mkezhman85/lighthouse-role))
 
 - [vector role]([GitHub - Mkezhman85/vector-role](https://github.com/Mkezhman85/vector-role))
 
-- [playbook](...)
+- [playbook]([devops-course/08-ansible-04-role/playbook/site.yml at main · Mkezhman85/devops-course · GitHub](https://github.com/Mkezhman85/devops-course/blob/main/08-ansible-04-role/playbook/site.yml))
 
 ---
 
@@ -183,6 +183,6 @@ git push --set-upstream --force origin main
 
 Выполненное домашнее задание пришлите в виде ссылки на .md-файл в вашем репозитории.
 
-[README](...)
+[README]([devops-course/08-ansible-04-role/README.md at main · Mkezhman85/devops-course · GitHub](https://github.com/Mkezhman85/devops-course/blob/main/08-ansible-04-role/README.md))
 
 ---

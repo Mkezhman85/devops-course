@@ -1,0 +1,83 @@
+---
+- name: Install NGINX
+  become: true
+  ansible.builtin.apt:
+    name:
+      - nginx
+    update_cache: true
+
+- name: Setting for nginx
+  ansible.builtin.command: sudo systemctl enable nginx
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_register
+
+- name: Check nginx
+  ansible.builtin.command: sudo service nginx status
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_register
+
+- name: Check nginx auto enabled
+  ansible.builtin.command: sudo systemctl is-enabled nginx
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_registerv
+
+- name: Install git
+  become: true
+  ansible.builtin.apt:
+    name:
+      - git
+    update_cache: true
+
+- name: Create lighhouse directory
+  ansible.builtin.file:
+    path: /var/www/lighthouse/html
+    state: directory
+    mode: '0755'
+
+- name: Clone lighthouse repository
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/VKCOM/lighthouse.git
+    version: 1
+    dest: /var/www/lighthouse/html
+    clone: false
+    update: false
+
+- name: Copy ./lighthouse.conf
+  ansible.builtin.copy:
+    src: ./lighthouse.conf
+    dest: /etc/nginx/sites-available/lighthouse.conf
+    mode: '0755'
+
+- name: Register file exist
+  ansible.builtin.stat:
+    path: /etc/nginx/sites-enabled/lighthouse.conf
+  register: file_exist
+
+- name: Create link in sites-enabled directory
+  ansible.builtin.command: sudo ln -s /etc/nginx/sites-available/lighthouse.conf /etc/nginx/sites-enabled/
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_registerv
+  when: not file_exist.stat.exists
+
+- name: Testing configuration
+  ansible.builtin.command: sudo nginx -t
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_registerv
+
+- name: Remove default configuration
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Reload web server
+  ansible.builtin.command: sudo systemctl restart nginx
+  ignore_errors: true
+  changed_when: false
+  register: ignore_errors_registerv
