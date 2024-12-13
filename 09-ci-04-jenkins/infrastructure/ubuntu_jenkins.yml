@@ -1,0 +1,211 @@
+---
+- name: Prepare all hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+
+    - name: Create group
+      become: true
+      ansible.builtin.group:
+        name: "{{ user_group }}"
+        state: present
+
+    - name: Create user
+      become: true
+      ansible.builtin.user:
+        name: "{{ user_name }}"
+        generate_ssh_key: true
+      register: ssh_key_info
+
+    # - ansible.builtin.debug: var=inventory_hostname
+    # - ansible.builtin.debug: var=ansible_hostname
+    # - ansible.builtin.debug: var=hostvars.ssh_key_info
+
+    - name: Install JDK and other requirements
+      become: true
+      ansible.builtin.apt:
+        name:
+          - fontconfig
+          - openjdk-17-jre
+          - acl
+          - ca-certificates
+          - apt-transport-https
+        state: present
+        update_cache: true
+
+- name: Get Jenkins master installed
+  hosts: jenkins_masters
+  tasks:
+    - name: Update and upgrade apt packages
+      become: true
+      ansible.builtin.apt:
+        upgrade: true
+        update_cache: true
+        cache_valid_time: 86400 # One day
+
+    - name: Добавление ключа jenkins
+      become: true
+      ansible.builtin.get_url:
+        url: "{{ jenkins_repo_key_url }}"
+        dest: /etc/apt/trusted.gpg.d/jenkins.asc
+        mode: a+r
+
+    - name: Установка стабильного репозитория
+      become_user: root
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "{{ jenkins_repo_url }}"
+        state: present
+        filename: jenkins
+        update-cache: true
+
+    - name: Установка jenkins и других зависимостей
+      become: true
+      ansible.builtin.apt:
+        name:
+          - jenkins
+          - git
+          - acl
+        state: present
+        update_cache: true
+      register: jenkins_installed
+
+    - name: Ensure jenkins agents are present in known_hosts file
+      become: true
+      become_user: "{{ jenkins_user_name }}"
+      ansible.builtin.known_hosts:
+        name: "{{ hostvars[item].ansible_host }}"
+        state: present
+        key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
+        hash_host: true
+      with_items: "{{ groups.jenkins_agents }}"
+
+    - name: Start Jenkins
+      become_user: root
+      become: true
+      ansible.builtin.systemd_service:
+        name: jenkins
+        state: restarted
+        enabled: true
+      when: jenkins_installed is changed
+
+- name: Prepare jenkins agent
+  hosts: jenkins_agents
+  become: true
+  become_user: "{{ jenkins_user_name }}"
+  tasks:
+    - name: Add master publickey into authorized_key
+      ansible.posix.authorized_key:
+        user: "{{ jenkins_user_name }}"
+        state: present
+        key: "{{ hostvars['jenkins-master-01']['ssh_key_info']['ssh_public_key'] }}"
+
+    - name: Create agent_dir
+      become_user: root
+      become: true
+      ansible.builtin.file:
+        path: "{{ jenkins_agent_dir }}"
+        state: directory
+        owner: "{{ jenkins_user_name }}"
+        group: "{{ jenkins_user_group }}"
+        mode: "0600"
+
+    - name: Добавление ключа Docker
+      become_user: root
+      become: true
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Установка стабильного репозитория
+      become_user: root
+      become: true
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+        update-cache: true
+
+
+    - name: Update apt and install docker and other packages
+      become_user: root
+      become: true
+      ansible.builtin.apt:
+        name:
+          - git
+          - python3
+          - python3-pip
+          - libssl-dev
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: true
+        cache_valid_time: 86400
+
+    - name: Update pip
+      become_user: root
+      become: true
+      ansible.builtin.pip:
+        executable: pip3
+        name: pip
+        extra_args: --upgrade
+
+    - name: Install Ansible
+      become_user: root
+      become: true
+      ansible.builtin.pip:
+        executable: pip3
+        name:
+          - selinux
+          - ansible
+          - molecule
+        state: present
+
+    - name: Reinstall Selinux
+      become_user: root
+      become: true
+      ansible.builtin.pip:
+        executable: pip3
+        name:
+          - selinux
+        state: forcereinstall
+
+    - name: Add local to PATH
+      ansible.builtin.lineinfile:
+        dest: ~/.bashrc
+        regexp: export PATH=$PATH:/home/jenkins/.local/bin
+        line: export PATH=$PATH:/home/jenkins/.local/bin
+
+    - name: Create docker group
+      become_user: root
+      become: true
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add jenkinsuser to dockergroup
+      become_user: root
+      become: true
+      ansible.builtin.user:
+        name: "{{ jenkins_user_name }}"
+        groups: docker
+
+    - name: Restart docker
+      become_user: root
+      become: true
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: Install agent.jar
+      become_user: root
+      become: true
+      ansible.builtin.get_url:
+        url: "http://{{ hostvars['jenkins-master-01']['ansible_host'] }}:8080/jnlpJars/agent.jar"
+        dest: "{{ jenkins_agent_dir }}"
+        mode: "0600"
+      register: install_agent
+      until: install_agent is succeeded
+      retries: 10
+      timeout: 10
