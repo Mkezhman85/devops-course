@@ -60,18 +60,14 @@
         state: present
       register: jenkins_installed
 
-    # - name: Ensure jenkins agents are present in known_hosts file
-    #   become: true
-    #   become_user: "{{ jenkins_user_name }}"
-    #   ansible.builtin.known_hosts:
-    #     name: "{{ hostvars[item].ansible_host }}"
-    #     key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
-    #     # key: "{{ lookup('pipe', 'ssh-keyscan 158.160.18.17') }}"
-    #     hash_host: true
-    #     path: /home/jenkins/.ssh/known_hosts
-    #     state: present
-    #   with_items: "{{ groups.jenkins_agents }}"
-    #   register: msg
+    - name: Ensure jenkins agents are present in known_hosts file
+      become: true
+      become_user: "{{ jenkins_user_name }}"
+      known_hosts:
+        name: "{{ hostvars[item].ansible_host }}"
+        state: present
+        key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
+        hash_host: true
 
     - name: Start Jenkins
       become: true
@@ -91,6 +87,7 @@
         user: "{{ jenkins_user_name }}"
         state: present
         key: "{{ hostvars['jenkins-master-01']['ssh_key_info']['ssh_public_key'] }}"
+
     - name: Create agent_dir
       become_user: root
       become: true
@@ -99,6 +96,7 @@
         state: directory
         owner: "{{ jenkins_user_name }}"
         group: "{{ jenkins_user_group }}"
+
     - name: Add docker repo
       become_user: root
       become: true
@@ -106,6 +104,7 @@
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
         validate_certs: false
+
     - name: Install some required
       become_user: root
       ansible.builtin.yum:
@@ -116,6 +115,7 @@
           - docker-ce-cli
           - containerd.io
         state: present
+
     - name: Update pip
       become_user: root
       ansible.builtin.pip:

@@ -1,0 +1,18 @@
+node("linux"){
+    stage("Git checkout"){
+        git branch: 'master',
+            url: 'https://github.com/Mkezhman85/example-playbook.git'
+    }
+    stage("define env"){
+        prod_run=false
+    }
+    stage("Run playbook"){
+        if (prod_run){
+            sh 'ansible-playbook site.yml -i inventory/prod.yml --check --diff'
+        }
+        else{
+            sh 'ansible-playbook site.yml -i inventory/prod.yml'
+        }
+
+    }
+}

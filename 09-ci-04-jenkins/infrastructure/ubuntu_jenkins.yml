@@ -2,27 +2,21 @@
 - name: Prepare all hosts
   hosts: all
   gather_facts: true
+  become: true
   tasks:
 
-    - name: Create group
-      become: true
+    - name: Create group (создание группы)
       ansible.builtin.group:
         name: "{{ user_group }}"
         state: present
 
-    - name: Create user
-      become: true
+    - name: Create user (создание пользователя jenkins и ssh-keygen. Публичный и приватный ключ в папке /home/jenkins/.ssh)
       ansible.builtin.user:
         name: "{{ user_name }}"
         generate_ssh_key: true
       register: ssh_key_info
 
-    # - ansible.builtin.debug: var=inventory_hostname
-    # - ansible.builtin.debug: var=ansible_hostname
-    # - ansible.builtin.debug: var=hostvars.ssh_key_info
-
-    - name: Install JDK and other requirements
-      become: true
+    - name: Install JDK and other requirements (Установка java)
       ansible.builtin.apt:
         name:
           - fontconfig
@@ -33,7 +27,7 @@
         state: present
         update_cache: true
 
-- name: Get Jenkins master installed
+- name: Get Jenkins master installed (Установка jenkins на хост jenkins-master)
   hosts: jenkins_masters
   tasks:
     - name: Update and upgrade apt packages
@@ -77,7 +71,6 @@
         name: "{{ hostvars[item].ansible_host }}"
         state: present
         key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
-        hash_host: true
       with_items: "{{ groups.jenkins_agents }}"
 
     - name: Start Jenkins
@@ -98,7 +91,7 @@
       ansible.posix.authorized_key:
         user: "{{ jenkins_user_name }}"
         state: present
-        key: "{{ hostvars['jenkins-master-01']['ssh_key_info']['ssh_public_key'] }}"
+        key: "{{ hostvars['jenkins-master-1']['ssh_key_info']['ssh_public_key'] }}"
 
     - name: Create agent_dir
       become_user: root
@@ -125,8 +118,7 @@
         state: present
         update-cache: true
 
-
-    - name: Update apt and install docker and other packages
+    - name: Update and upgrade apt packages (Обновление пакетов)
       become_user: root
       become: true
       ansible.builtin.apt:
@@ -159,6 +151,9 @@
           - selinux
           - ansible
           - molecule
+          - molecule_docker
+          - molecule-plugins[docker]
+          - molecule[docker]
         state: present
 
     - name: Reinstall Selinux
@@ -173,8 +168,8 @@
     - name: Add local to PATH
       ansible.builtin.lineinfile:
         dest: ~/.bashrc
-        regexp: export PATH=$PATH:/home/jenkins/.local/bin
-        line: export PATH=$PATH:/home/jenkins/.local/bin
+        regexp: export PATH=$PATH:/home/jenkins/.local/bin:/home/ubuntu/.local/lib/python3.8/site-packages
+        line: export PATH=$PATH:/home/jenkins/.local/bin:/home/ubuntu/.local/lib/python3.8/site-packages
 
     - name: Create docker group
       become_user: root
@@ -202,10 +197,23 @@
       become_user: root
       become: true
       ansible.builtin.get_url:
-        url: "http://{{ hostvars['jenkins-master-01']['ansible_host'] }}:8080/jnlpJars/agent.jar"
+        url: "http://{{ hostvars['jenkins-master-1']['ansible_host'] }}:8080/jnlpJars/agent.jar"
         dest: "{{ jenkins_agent_dir }}"
-        mode: "0600"
+        mode: "u+rwx"
+        owner: "{{ user_name }}"
+        group: "{{ user_group }}"
       register: install_agent
       until: install_agent is succeeded
       retries: 10
       timeout: 10
+
+    - name: Change agent.jar ownership, group and permissions
+      become_user: root
+      become: true
+      ansible.builtin.file:
+        path: /home/jenkins/jenkins_agent/
+        owner: "{{ user_name }}"
+        group: "{{ user_group }}"
+        state: directory
+        recurse: true
+        mode: 'u+rwx'

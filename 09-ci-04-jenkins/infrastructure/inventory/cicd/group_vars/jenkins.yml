@@ -6,6 +6,8 @@ jenkins_user_group: jenkins
 java_packages:
   - java-11-openjdk-devel
   - java-11-openjdk
-jenkins_agent_dir: /opt/jenkins_agent/
+jenkins_agent_dir: /home/jenkins/jenkins_agent/
+# jenkins_agent_dir: /opt/jenkins_agent/
 jenkins_repo_key_url: "https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key"
 jenkins_repo_url: "deb [signed-by=/etc/apt/trusted.gpg.d/jenkins.asc] https://pkg.jenkins.io/debian binary/"
+
