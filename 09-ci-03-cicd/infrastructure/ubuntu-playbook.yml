@@ -1,0 +1,179 @@
+---
+- name: Install Java 17
+  hosts: sonarqube
+  become: true
+  become_user: root
+  tasks:
+    - name: Update upgrade and install apt packages
+      become: true
+      ansible.builtin.apt:
+        name:
+          - wget
+          - apt-transport-https
+        update_cache: true
+        cache_valid_time: 86400
+
+    - name: Create directory
+      become: true
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings"
+        state: directory
+        mode: a+r
+
+    - name: Get url
+      ansible.builtin.get_url:
+        url: " https://packages.adoptium.net/artifactory/api/gpg/key/public"
+        dest: "/etc/apt/keyrings/adoptium.asc"
+        validate_certs: false
+        mode: a+r
+
+    # - name: Установка стабильного репозитория
+    #   become_user: root
+    #   become: true
+    #   ansible.builtin.apt_repository:
+    #     repo: >
+    #       deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb
+    #       $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main
+    #       | tee /etc/apt/sources.list.d/adoptium.list
+    #     state: present
+    #     update-cache: true
+
+    - name: Update upgrade and instll apt packages
+      become: true
+      ansible.builtin.apt:
+        name:
+          - temurin-17-jdk
+        update_cache: true
+
+    - name: Update-alternatives --config java
+      become_user: root
+      become: true
+      ansible.builtin.command: "update-alternatives --config java"
+      failed_when: false
+      changed_when: false
+
+- name: Get postgresql installed
+  hosts: sonarqube
+  become: true
+  become_user: root
+  tasks:
+    - name: Install Postgresql 15
+      become_user: root
+      become: true
+      ansible.builtin.apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+        state: present
+        update_cache: true
+
+    - name: Start postgresql
+      become_user: root
+      become: true
+      ansible.builtin.systemd_service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Create user in system
+      ansible.builtin.user:
+        name: "{{ sonarqube_db_user }}"
+
+    - name: Create user for Sonar in PostgreSQL
+      become_user: root
+      become: true
+      ansible.builtin.command: "createuser -s -e {{ sonarqube_db_user }}"
+      failed_when: false
+      changed_when: false
+
+    - name: Change password for Sonar user in PostgreSQL
+      become_user: root
+      become: true
+      ansible.builtin.command: "psql -c \"ALTER USER sonar WITH ENCRYPTED password '{{ sonarqube_db_password }}';\""
+      changed_when: false
+
+    - name: Create Sonar DB
+      become_user: postgres
+      become: true
+      ansible.builtin.command: "psql -c \"createdb {{ sonarqube_db_name }};\""
+      failed_when: false
+      changed_when: false
+
+    - name: Create Sonar DB
+      become: true
+      become_user: postgres
+      ansible.builtin.command: "psql -c \"grant all privileges on DATABASE sonarqube to sonar;\""
+      failed_when: false
+      changed_when: false
+
+- name: Install Sonarqube
+  hosts: sonarqube
+  become: true
+  become_user: root
+  tasks:
+    - name: Install unzip
+      become: true
+      ansible.builtin.apt:
+        name:
+          - unzip
+        upgrade: true
+        update_cache: true
+
+    - name: Get distrib ZIP
+      ansible.builtin.get_url:
+        url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.0.65466.zip"
+        dest: /opt
+        validate_certs: false
+        mode: a+r
+
+    - name: Unzip Sonar
+      become: true
+      ansible.builtin.unarchive:
+        src: "sonarqube-9.9.0.65466.zip"
+        dest: /opt/sonarqube
+        copy: false
+        creates: /usr/local/sonar/COPYING
+
+    - name: Create group (создание группы)
+      ansible.builtin.group:
+        name: sonar
+        state: present
+
+    - name: Create user
+      ansible.builtin.user:
+        name: sonar
+        group: sonar
+
+    - name: Change sonar folder ownership, group and permissions
+      become_user: root
+      become: true
+      ansible.builtin.file:
+        path: /opt/sonarqube
+        owner: sonar
+        group: sonar
+        state: directory
+        recurse: true
+        mode: 'u+rwx'
+
+    - name: Configure SonarQube JDBC settings for PostgreSQL.
+      ansible.builtin.lineinfile:
+        dest: /opt/sonarqube/conf/sonar.properties
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - regexp: "^sonar.jdbc.username"
+          line: "sonar.jdbc.username={{ sonarqube_db_user }}"
+        - regexp: "^sonar.jdbc.password"
+          line: "sonar.jdbc.password={{ sonarqube_db_password }}"
+        - regexp: "^sonar.jdbc.url"
+          line: "sonar.jdbc.url=jdbc:postgresql://localhost:{{ sonar_db_port }}/{{ sonarqube_db_name }}?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&useConfigs=maxPerformance"
+        - regexp: "^sonar.web.context"
+          line: "sonar.web.context={{ sonar_web_context }}"
+
+    - name: Start postgresql
+      become_user: root
+      become: true
+      ansible.builtin.systemd_service:
+        name: sonar
+        state: started
+        enabled: true

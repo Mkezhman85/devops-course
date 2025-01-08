@@ -41,7 +41,6 @@ resource "yandex_compute_instance" "netology-sonarqube" {
   boot_disk {
     initialize_params {
       image_id = data.yandex_compute_image.centos-7.image_id
-      # image_id = data.yandex_compute_image.ubuntu-2004-lts.image_id
     }
   }
   scheduling_policy {
@@ -73,7 +72,6 @@ resource "yandex_compute_instance" "netology-nexus" {
   boot_disk {
     initialize_params {
       image_id = data.yandex_compute_image.centos-7.image_id
-      # image_id = data.yandex_compute_image.ubuntu-2004-lts.image_id
     }
   }
   scheduling_policy {
