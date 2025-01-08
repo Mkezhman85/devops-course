@@ -12,7 +12,7 @@
       ansible.builtin.get_url:
         url: "{{ jdk_url }}"
         dest: "/tmp/jdk-{{ jdk_distr_name }}"
-        mode: 0755
+        mode: a+r
       register: download_java_remote_binaries
       until: download_java_remote_binaries is succeeded
 
@@ -21,7 +21,7 @@
       ansible.builtin.file:
         state: directory
         path: "{{ java_home }}"
-        mode: 0755
+        mode: a+r
 
     - name: Extract java in the installation directory
       become: true
@@ -39,7 +39,7 @@
         dest: /etc/profile.d/jdk.sh
         owner: root
         group: root
-        mode: 0644
+        mode: a+r
 
 - name: Get PostgreSQL installed
   hosts: postgres
@@ -49,27 +49,38 @@
       ansible.builtin.copy:
         src: CentOS-Base.repo
         dest: /etc/yum.repos.d/CentOS-Base.repo
-        mode: 0644
+        mode: a+r
         owner: root
         group: root
 
-    - name: Install PostgreSQL repos
-      ansible.builtin.yum:
-        # name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-        name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-        state: present
-        validate_certs: false
+    # - name: Install PostgreSQL repos
+    #   become_user: root
+    #   become: true
+    #   ansible.builtin.yum:
+    #     name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+    #     state: present
+    #     update_cache: true
+    #     validate_certs: false
 
     - name: Install PostgreSQL
+      become_user: root
       become: true
       ansible.builtin.yum:
         # name: "postgresql{{ postgresql_version }}-server"
-        name: "postgresql12-server"
+        # name: "postgresql12-server"
+        name:
+          - postgresql12
+          - postgresql12-server
+          - postgresql12-contrib
+          - postgresql12-libs
         state: present
+        update_cache: true
 
     - name: Init template1 DB
-      ansible.builtin.command: /usr/pgsql-11/bin/postgresql-11-setup initdb
+      # ansible.builtin.command: /usr/pgsql-11/bin/postgresql-11-setup initdb
+      ansible.builtin.command: /usr/pgsql-12/bin/postgresql-12-setup initdb
       failed_when: false
+      changed_when: false
 
     - name: Start pgsql service
       ansible.builtin.systemd:
@@ -80,25 +91,32 @@
     - name: Create user in system
       ansible.builtin.user:
         name: "{{ sonarqube_db_user }}"
+
     - name: Create user for Sonar in PostgreSQL
       become_user: postgres
+      become: true
       ansible.builtin.command: "createuser -s -e {{ sonarqube_db_user }}"
       failed_when: false
+      changed_when: false
 
     - name: Change password for Sonar user in PostgreSQL
       become_user: postgres
+      become: true
       ansible.builtin.command: "psql -c \"ALTER USER sonar WITH ENCRYPTED password '{{ sonarqube_db_password }}';\""
+      changed_when: false
 
     - name: Create Sonar DB
       become_user: postgres
+      become: true
       ansible.builtin.command: "createdb {{ sonarqube_db_name }}"
       failed_when: false
+      changed_when: false
 
     - name: Copy pg_hba.conf
       ansible.builtin.copy:
         src: pg_hba.conf
         dest: /var/lib/pgsql/11/data/pg_hba.conf
-        mode: 0600
+        mode: a+r
         owner: postgres
         group: postgres
 
@@ -290,6 +308,7 @@
         dest: "/home/{{ nexus_user_name }}/.bashrc"
         insertafter: EOF
         line: "export NEXUS_HOME={{ nexus_directory_home }}"
+        mode: a+r
 
     - name: Add run_as_user to Nexus.rc
       become: true
@@ -331,6 +350,7 @@
       ansible.builtin.template:
         dest: "{{ nexus_directory_home }}/bin/nexus.vmoptions"
         src: nexus.vmoptions.j2
+        mode: a+r
       register: nexus_config_changed
 
     - name: Create Nexus properties
@@ -339,6 +359,7 @@
       ansible.builtin.template:
         dest: "{{ nexus_directory_data }}/etc/nexus.properties"
         src: nexus.properties.j2
+        mode: a+r
       register: nexus_config_changed
 
     - name: Lower Nexus disk space threshold

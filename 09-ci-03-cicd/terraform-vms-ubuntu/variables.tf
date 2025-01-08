@@ -42,7 +42,7 @@ variable "metadata" {
     }
     yandex_compute_image = {
       type        = "string"
-      default     = "centos-7"
+      default     = "ubuntu-2004-lts"
       description = "yandex_compute_image"
     }
   }
