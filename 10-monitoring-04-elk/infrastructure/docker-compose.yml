@@ -1,0 +1,102 @@
+services:
+  elasticsearch-hot:
+    image: elasticsearch:8.7.0
+    container_name: elasticsearch-hot
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - 9200:9200
+    environment:
+      - node.name=elasticsearch-hot
+      - cluster.name=es-docker
+      - discovery.seed_hosts=elasticsearch-hot
+      - cluster.initial_master_nodes=elasticsearch-hot
+      - node.roles=master,data_content,data_hot
+      # - xpack.ml.use_auto_machine_memory_percent=true
+      # - xpack.security.http.ssl.enabled=false
+      # - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "http.host=0.0.0.0"
+      - xpack.security.enabled=false
+      - network.host=0.0.0.0
+      # ERROR: [xpack.security.enrollment.enabled] must be set to `true` to create an enrollment token
+      - xpack.security.enrollment.enabled=true
+
+    volumes:
+      - data01:/usr/share/elasticsearch/data:Z
+    mem_limit: 4g
+    networks:
+      - elastic
+
+  kibana:
+    image: kibana:8.7.0
+    container_name: kibana
+    restart: always
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch-hot:9200
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch-hot:9200"]'
+    depends_on:
+      - elasticsearch-hot
+    mem_limit: 1g
+    networks:
+      - elastic
+  
+  filebeat:
+    image: elastic/filebeat:8.7.0
+    container_name: filebeat
+    user: root
+    privileged: true
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch-hot:9200"]
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./configs/filebeat.yml:/usr/share/filebeat/filebeat.yml:Z
+      - /var/lib/docker:/var/lib/docker:Z
+      - /var/run/docker.sock:/var/run/docker.sock:Z
+    depends_on:
+      - elasticsearch-hot
+      - kibana
+    networks:
+      - elastic
+
+  logstash:
+    image: logstash:8.7.0
+    container_name: logstash
+    restart: always
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - 5046:5046
+      - 5044:5044
+    volumes:
+      - ./configs/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:Z
+      - ./configs/logstash.yml:/opt/logstash/config/logstash.yml:Z
+    networks:
+      - elastic
+    depends_on:
+      - elasticsearch-hot
+  
+  some_application:
+    image: library/python:3.9-alpine
+    container_name: some_app
+    restart: always
+    volumes:
+      - ./pinger/:/opt/:Z
+    entrypoint: python3 /opt/run.py
+
+volumes:
+  data01:
+    driver: local
+
+networks:
+  elastic:
+    
